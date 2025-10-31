@@ -1,13 +1,8 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "headers": [
     {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "Content-Type", "value": "text/html; charset=utf-8" }
-      ]
+      "source": "/((?!assets|favicon\\.ico|robots\\.txt|manifest\\.json|.*\\.(js|css|png|jpg|svg|json)).*)",
+      "destination": "/index.html"
     }
   ]
 }
