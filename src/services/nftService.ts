@@ -155,7 +155,7 @@ async function fetchNFTData(
     const tokenIdString = tokenId.toString();
 
     // Get token URI and owner
-    console.log(`Fetching data for token ID ${tokenId} from contract ${contractAddress}`);
+  //  console.log(`Fetching data for token ID ${tokenId} from contract ${contractAddress}`);
     const [tokenURI, owner] = await Promise.all([
       contract.tokenURI(tokenId, {
         gasLimit: 30000000, // 30M gas limit for complex on-chain rendering
