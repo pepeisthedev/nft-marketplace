@@ -297,7 +297,7 @@ export default function NFTGrid({
                       alt={nft.metadata.name}
                       className="w-full h-full object-contain"
                       onError={(e) => {
-                        console.log('Image load error for:', nft.metadata.name);
+                      //  console.log('Image load error for:', nft.metadata.name);
                         const target = e.target as HTMLImageElement;
                         target.src = `https://via.placeholder.com/400x400?text=NFT+${nft.tokenId}`;
                       }}

@@ -24,7 +24,7 @@ export async function getNFTsFromContract(
   try {
     const contract = new Contract(contractAddress, ERC721_ABI, provider);
     const totalSupply = await contract.totalSupply();
-    console.log(`Total supply for contract ${contractAddress}: ${totalSupply}`);
+   // console.log(`Total supply for contract ${contractAddress}: ${totalSupply}`);
     const nfts: NFT[] = [];
     
     // Limit to first 30 NFTs
@@ -63,9 +63,9 @@ export async function getNFTsFromContract(
       console.log(`Progress: ${processedCount}/${totalTokens} NFTs processed`);
     }
 
-    console.log(`Successfully fetched ${nfts.length} out of ${totalTokens} NFTs`);
+    // console.log(`Successfully fetched ${nfts.length} out of ${totalTokens} NFTs`);
     if (Number(totalSupply) > maxNFTs) {
-      console.log(`Note: Limited to first ${maxNFTs} NFTs (total supply: ${totalSupply})`);
+       console.log(`Note: Limited to first ${maxNFTs} NFTs (total supply: ${totalSupply})`);
     }
     return nfts;
   } catch (error) {
@@ -166,13 +166,10 @@ async function fetchNFTData(
     
     // Decode the data URI (handles both base64 and plain encoding)
     const decodedJson = decodeDataURI(tokenURI);
-    console.log(`📋 Raw tokenURI for token ${tokenId}:`, tokenURI);
-    console.log(`📄 Decoded JSON for token ${tokenId}:`, decodedJson);
+
     
     const metadata = JSON.parse(decodedJson) as NFTMetadata;
-    console.log(`✅ Parsed metadata for token ID ${tokenId}:`, JSON.stringify(metadata, null, 2));
-    console.log(`🖼️ Image field type:`, typeof metadata.image);
-    console.log(`🖼️ Image field value (first 200 chars):`, metadata.image?.substring(0, 200));
+
 
     return {
       tokenId: tokenIdString,
