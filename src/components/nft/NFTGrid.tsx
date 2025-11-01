@@ -40,6 +40,71 @@ function ensureEncodedDataURI(dataURI: string): string {
   return `${mimeType},${encodedContent}`;
 }
 
+/**
+ * Extract SVG content from data URI for inline rendering (mobile-friendly)
+ */
+function extractSVGContent(dataURI: string): string | null {
+  if (!dataURI.startsWith('data:image/svg+xml')) return null;
+  
+  try {
+    if (dataURI.includes(';base64,')) {
+      const base64Data = dataURI.split(',')[1];
+      return atob(base64Data);
+    } else {
+      const parts = dataURI.split(',');
+      if (parts.length < 2) return null;
+      const encodedData = parts.slice(1).join(',');
+      
+      // Try to decode if URL-encoded
+      if (/%[0-9A-Fa-f]{2}/.test(encodedData)) {
+        return decodeURIComponent(encodedData);
+      }
+      return encodedData;
+    }
+  } catch (e) {
+    console.error('Failed to extract SVG content:', e);
+    return null;
+  }
+}
+
+/**
+ * Scope SVG styles to prevent CSS conflicts when multiple SVGs are rendered
+ */
+function scopeSVGStyles(svgContent: string, scopeId: string): string {
+  try {
+    // First, scope the style definitions
+    let scopedContent = svgContent.replace(
+      /<style[^>]*>([\s\S]*?)<\/style>/gi,
+      (match, styles) => {
+        // Add scope ID to all class selectors in the style tag
+        const scopedStyles = styles.replace(
+          /\.([a-zA-Z0-9_-]+)(?=[^}]*\{)/g,
+          `.svg-${scopeId}-$1`
+        );
+        return `<style>${scopedStyles}</style>`;
+      }
+    );
+    
+    // Then, update class attributes in the SVG elements
+    scopedContent = scopedContent.replace(
+      /class="([^"]+)"/g,
+      (match: string, classes: string) => {
+        // Add scope ID to all classes in the class attribute
+        const scopedClasses = classes.split(/\s+/)
+          .filter((cls: string) => cls.trim())
+          .map((cls: string) => `svg-${scopeId}-${cls.trim()}`)
+          .join(' ');
+        return `class="${scopedClasses}"`;
+      }
+    );
+    
+    return scopedContent;
+  } catch (e) {
+    console.error('Failed to scope SVG styles:', e);
+    return svgContent; // Return original if scoping fails
+  }
+}
+
 interface NFTGridProps {
   contract: NFTContract;
   nfts: NFT[];
@@ -279,18 +344,37 @@ export default function NFTGrid({
               <CardHeader className="p-0">
                 <div className="w-full aspect-square rounded-t-lg overflow-hidden bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
                   {nft.metadata.image.startsWith('data:image/svg+xml') ? (
-                    <object
-                      data={ensureEncodedDataURI(nft.metadata.image)}
-                      type="image/svg+xml"
-                      className="w-full h-full"
-                      aria-label={nft.metadata.name}
-                    >
-                      <img
-                        src={`https://via.placeholder.com/400x400?text=NFT+${nft.tokenId}`}
-                        alt={nft.metadata.name}
-                        className="w-full h-full object-contain"
-                      />
-                    </object>
+                    (() => {
+                      const svgContent = extractSVGContent(nft.metadata.image);
+                      if (!svgContent) {
+                        return (
+                          <img
+                            src={`https://via.placeholder.com/400x400?text=NFT+${nft.tokenId}`}
+                            alt={nft.metadata.name}
+                            className="w-full h-full object-contain"
+                          />
+                        );
+                      }
+                      // Use iframe for proper isolation on mobile
+                      const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+                      const url = URL.createObjectURL(blob);
+                      return (
+                        <img
+                          src={url}
+                          alt={nft.metadata.name}
+                          className="w-full h-full object-contain"
+                          onLoad={(e) => {
+                            // Clean up blob URL after image loads
+                            URL.revokeObjectURL(url);
+                          }}
+                          onError={(e) => {
+                            URL.revokeObjectURL(url);
+                            const target = e.target as HTMLImageElement;
+                            target.src = `https://via.placeholder.com/400x400?text=NFT+${nft.tokenId}`;
+                          }}
+                        />
+                      );
+                    })()
                   ) : (
                     <img
                       src={nft.metadata.image}

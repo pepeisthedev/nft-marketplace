@@ -29,6 +29,33 @@ function ensureEncodedDataURI(dataURI: string): string {
   return `${mimeType},${encodedContent}`;
 }
 
+/**
+ * Extract SVG content from data URI for inline rendering (mobile-friendly)
+ */
+function extractSVGContent(dataURI: string): string | null {
+  if (!dataURI.startsWith('data:image/svg+xml')) return null;
+  
+  try {
+    if (dataURI.includes(';base64,')) {
+      const base64Data = dataURI.split(',')[1];
+      return atob(base64Data);
+    } else {
+      const parts = dataURI.split(',');
+      if (parts.length < 2) return null;
+      const encodedData = parts.slice(1).join(',');
+      
+      // Try to decode if URL-encoded
+      if (/%[0-9A-Fa-f]{2}/.test(encodedData)) {
+        return decodeURIComponent(encodedData);
+      }
+      return encodedData;
+    }
+  } catch (e) {
+    console.error('Failed to extract SVG content:', e);
+    return null;
+  }
+}
+
 interface ContractsListProps {
   contracts: NFTContract[];
   onSelectContract: (contract: NFTContract) => void;
@@ -57,18 +84,21 @@ export default function ContractsList({ contracts, onSelectContract }: Contracts
               {contract.image && (
                 <div className="w-full h-48 mb-4 rounded-lg overflow-hidden bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
                   {contract.image.startsWith('data:image/svg+xml') ? (
-                    <object
-                      data={ensureEncodedDataURI(contract.image)}
-                      type="image/svg+xml"
-                      className="w-full h-full"
-                      aria-label={contract.name}
-                    >
-                      <img
-                        src={`https://via.placeholder.com/400x400?text=${encodeURIComponent(contract.symbol)}`}
-                        alt={contract.name}
-                        className="w-full h-full object-contain"
-                      />
-                    </object>
+                    (() => {
+                      const svgContent = extractSVGContent(contract.image);
+                      return svgContent ? (
+                        <div 
+                          className="w-full h-full"
+                          dangerouslySetInnerHTML={{ __html: svgContent }}
+                        />
+                      ) : (
+                        <img
+                          src={`https://via.placeholder.com/400x400?text=${encodeURIComponent(contract.symbol)}`}
+                          alt={contract.name}
+                          className="w-full h-full object-contain"
+                        />
+                      );
+                    })()
                   ) : (
                     <img
                       src={contract.image}

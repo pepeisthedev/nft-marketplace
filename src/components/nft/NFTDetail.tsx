@@ -33,6 +33,33 @@ function ensureEncodedDataURI(dataURI: string): string {
   return `${mimeType},${encodedContent}`;
 }
 
+/**
+ * Extract SVG content from data URI for inline rendering (mobile-friendly)
+ */
+function extractSVGContent(dataURI: string): string | null {
+  if (!dataURI.startsWith('data:image/svg+xml')) return null;
+  
+  try {
+    if (dataURI.includes(';base64,')) {
+      const base64Data = dataURI.split(',')[1];
+      return atob(base64Data);
+    } else {
+      const parts = dataURI.split(',');
+      if (parts.length < 2) return null;
+      const encodedData = parts.slice(1).join(',');
+      
+      // Try to decode if URL-encoded
+      if (/%[0-9A-Fa-f]{2}/.test(encodedData)) {
+        return decodeURIComponent(encodedData);
+      }
+      return encodedData;
+    }
+  } catch (e) {
+    console.error('Failed to extract SVG content:', e);
+    return null;
+  }
+}
+
 interface NFTDetailProps {
   nft: NFT;
   contractName: string;
@@ -61,18 +88,21 @@ export default function NFTDetail({
           <Card className="overflow-hidden bg-white/90 backdrop-blur-sm border-2 border-purple-200">
             <div className="w-full aspect-square bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center p-4">
               {nft.metadata.image.startsWith('data:image/svg+xml') ? (
-                <object
-                  data={ensureEncodedDataURI(nft.metadata.image)}
-                  type="image/svg+xml"
-                  className="w-full h-full"
-                  aria-label={nft.metadata.name}
-                >
-                  <img
-                    src={`https://via.placeholder.com/800x800?text=NFT+${nft.tokenId}`}
-                    alt={nft.metadata.name}
-                    className="w-full h-full object-contain"
-                  />
-                </object>
+                (() => {
+                  const svgContent = extractSVGContent(nft.metadata.image);
+                  return svgContent ? (
+                    <div 
+                      className="w-full h-full"
+                      dangerouslySetInnerHTML={{ __html: svgContent }}
+                    />
+                  ) : (
+                    <img
+                      src={`https://via.placeholder.com/800x800?text=NFT+${nft.tokenId}`}
+                      alt={nft.metadata.name}
+                      className="w-full h-full object-contain"
+                    />
+                  );
+                })()
               ) : (
                 <img
                   src={nft.metadata.image}
