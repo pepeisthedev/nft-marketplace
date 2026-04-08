@@ -4,6 +4,9 @@ export interface NFTContract {
   symbol: string;
   description?: string;
   image?: string;
+  type?: "ERC721" | "ERC1155";
+  /** ERC-1155 only: the token IDs to display (required for ERC-1155) */
+  tokenIds?: number[];
 }
 
 export interface NFTAttribute {

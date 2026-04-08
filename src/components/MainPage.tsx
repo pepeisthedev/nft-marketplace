@@ -1,11 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAppKitAccount, useAppKitProvider, useAppKit, useAppKitNetwork } from "@reown/appkit/react";
 import { hardhat, baseSepolia, base } from '@reown/appkit/networks';
 import { BrowserProvider } from "ethers";
 import { Wallet, Network } from "lucide-react";
 import { NFTContract, NFT } from "../types/NFTTypes";
 import { NFT_CONTRACTS_BY_NETWORK } from "../config/contracts";
-import { getNFTsFromContract, getNFTById, getContractInfo } from "../services/nftService";
+import {
+    getNFTsFromContract,
+    getNFTById,
+    getContractInfo,
+    getCachedPage,
+    setCachedPage,
+    getCachedTotalSupply,
+    setCachedTotalSupply,
+    clearContractCache,
+} from "../services/nftService";
 import ContractsList from "./nft/ContractsList";
 import NFTGrid from "./nft/NFTGrid";
 import NFTDetail from "./nft/NFTDetail";
@@ -18,6 +27,8 @@ import {
 } from "./ui/select";
 
 type ViewType = "contracts" | "nfts" | "detail";
+
+const PAGE_SIZE = 30;
 
 export default function MainPage(): React.JSX.Element {
     const { isConnected } = useAppKitAccount();
@@ -33,25 +44,18 @@ export default function MainPage(): React.JSX.Element {
     const [error, setError] = useState<string | null>(null);
     const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
     const [contractsWithImages, setContractsWithImages] = useState<NFTContract[]>([]);
-
-    // Get chain ID from CAIP network (format: "eip155:84532" -> 84532)
-    // Default to Base Sepolia (84532) if not available
-
-
-    // Get contracts for current network
-
+    const [currentPage, setCurrentPage] = useState(0);
+    const [totalSupply, setTotalSupply] = useState(0);
 
     const chainId = React.useMemo(() => {
-        if (!caipNetwork?.id) return 84532; // default Base Sepolia
+        if (!caipNetwork?.id) return 84532;
         const parts = String(caipNetwork.id).split(":");
         const parsed = parseInt(parts[1]);
         return isNaN(parsed) ? 84532 : parsed;
-        }, [caipNetwork]);
+    }, [caipNetwork]);
 
-        const currentNetworkContracts = NFT_CONTRACTS_BY_NETWORK[chainId] || [];
+    const currentNetworkContracts = NFT_CONTRACTS_BY_NETWORK[chainId] || [];
 
-
-    // Network options with their details
     const networkMap: Record<number, any> = {
         31337: hardhat,
         84532: baseSepolia,
@@ -84,7 +88,6 @@ export default function MainPage(): React.JSX.Element {
     }
     }, [isConnected, walletProvider, chainId]);
 
-
     const fetchContractImages = async () => {
         if (!walletProvider) return;
 
@@ -92,22 +95,25 @@ export default function MainPage(): React.JSX.Element {
             const ethersProvider = new BrowserProvider(walletProvider as any);
             const contractsWithImagesPromises = currentNetworkContracts.map(async (contract) => {
                 try {
-                    // Fetch contract info (name, symbol, totalSupply) and token 0
-                    const [contractInfo, token0] = await Promise.all([
+                    const contractType = contract.type ?? "ERC721";
+                    // For ERC-1155, use the first configured token ID as the preview token
+                    const previewTokenId = contractType === "ERC1155"
+                        ? String(contract.tokenIds?.[0] ?? 0)
+                        : "0";
+
+                    const [contractInfo, previewToken] = await Promise.all([
                         getContractInfo(contract.address, ethersProvider),
-                        getNFTById(contract.address, "0", ethersProvider),
+                        getNFTById(contract.address, previewTokenId, ethersProvider, contractType),
                     ]);
-                    //console.log(`Fetched images for ${contract.address}:`, token0.metadata.image);
 
                     return {
                         ...contract,
-                        name: contractInfo.name,
-                        symbol: contractInfo.symbol,
-                        image: token0.metadata.image,
+                        name: contractInfo.name || contract.name,
+                        symbol: contractInfo.symbol || contract.symbol,
+                        image: previewToken.metadata.image,
                     };
                 } catch (err) {
                     console.warn(`Could not fetch info for ${contract.address}:`, err);
-                    // Return contract with defaults if fetch fails
                     return contract;
                 }
             });
@@ -116,42 +122,62 @@ export default function MainPage(): React.JSX.Element {
             setContractsWithImages(updatedContracts);
         } catch (err) {
             console.error("Error fetching contract images:", err);
-            // Keep using default contracts if there's an error
         }
     };
 
     const handleWalletClick = () => {
         if (!isConnected) {
-            // Open wallet connection modal
             open();
         } else {
-            // If connected, open account modal to show details/disconnect
             open({ view: "Account" });
         }
     };
 
-    const handleSelectContract = async (contract: NFTContract) => {
+    const loadNFTsPage = useCallback(async (
+        contract: NFTContract,
+        page: number,
+        forceRefresh = false
+    ) => {
         if (!walletProvider) {
             setError("Wallet not connected");
             return;
         }
 
-        setSelectedContract(contract);
-        setCurrentView("nfts");
-        setLoading(true);
+        setCurrentPage(page);
         setError(null);
         setLoadingProgress({ current: 0, total: 0 });
 
+        // Try cache first (unless force refresh)
+        if (!forceRefresh) {
+            const cached = getCachedPage(contract.address, chainId, page);
+            const cachedTotal = getCachedTotalSupply(contract.address, chainId);
+            if (cached && cachedTotal !== null) {
+                setNfts(cached);
+                setTotalSupply(cachedTotal);
+                return;
+            }
+        }
+
+        setLoading(true);
         try {
             const ethersProvider = new BrowserProvider(walletProvider as any);
-            const nftList = await getNFTsFromContract(
-                contract.address, 
+            const { nfts: nftList, totalSupply: total } = await getNFTsFromContract(
+                contract.address,
                 ethersProvider,
+                {
+                    offset: page * PAGE_SIZE,
+                    limit: PAGE_SIZE,
+                    contractType: contract.type ?? "ERC721",
+                    tokenIds: contract.tokenIds,
+                },
                 (current, total) => {
                     setLoadingProgress({ current, total });
                 }
             );
             setNfts(nftList);
+            setTotalSupply(total);
+            setCachedPage(contract.address, chainId, page, nftList);
+            setCachedTotalSupply(contract.address, chainId, total);
         } catch (err) {
             console.error("Error loading NFTs:", err);
             setError(
@@ -160,6 +186,34 @@ export default function MainPage(): React.JSX.Element {
         } finally {
             setLoading(false);
             setLoadingProgress({ current: 0, total: 0 });
+        }
+    }, [walletProvider, chainId]);
+
+    const handleSelectContract = async (contract: NFTContract) => {
+        setSelectedContract(contract);
+        setCurrentView("nfts");
+        setCurrentPage(0);
+        setTotalSupply(0);
+        setNfts([]);
+        await loadNFTsPage(contract, 0);
+    };
+
+    const handleNextPage = () => {
+        if (selectedContract) {
+            loadNFTsPage(selectedContract, currentPage + 1);
+        }
+    };
+
+    const handlePrevPage = () => {
+        if (selectedContract && currentPage > 0) {
+            loadNFTsPage(selectedContract, currentPage - 1);
+        }
+    };
+
+    const handleForceRefresh = () => {
+        if (selectedContract) {
+            clearContractCache(selectedContract.address, chainId);
+            loadNFTsPage(selectedContract, currentPage, true);
         }
     };
 
@@ -173,6 +227,8 @@ export default function MainPage(): React.JSX.Element {
         setSelectedContract(null);
         setNfts([]);
         setError(null);
+        setCurrentPage(0);
+        setTotalSupply(0);
     };
 
     const handleBackToNFTs = () => {
@@ -188,6 +244,8 @@ export default function MainPage(): React.JSX.Element {
             setSelectedNFT(null);
             setNfts([]);
             setError(null);
+            setCurrentPage(0);
+            setTotalSupply(0);
         }
     }, [isConnected]);
 
@@ -264,6 +322,12 @@ export default function MainPage(): React.JSX.Element {
                             onBack={handleBackToContracts}
                             loading={loading}
                             loadingProgress={loadingProgress}
+                            currentPage={currentPage}
+                            totalSupply={totalSupply}
+                            pageSize={PAGE_SIZE}
+                            onNextPage={handleNextPage}
+                            onPrevPage={handlePrevPage}
+                            onForceRefresh={handleForceRefresh}
                         />
                     )}
 

@@ -235,7 +235,8 @@ export default function NFTDetail({
             </CardHeader>
             <CardContent>
               <pre className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto text-xs max-h-96 overflow-y-auto">
-                {JSON.stringify(nft.metadata, null, 2)}
+                {JSON.stringify(nft.metadata, null, 2)
+                  .replace(/https:\/\/ipfs\.io\/ipfs\//g, "ipfs://")}
               </pre>
             </CardContent>
           </Card>

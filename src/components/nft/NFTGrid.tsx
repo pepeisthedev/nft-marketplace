@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { NFT, NFTContract, FilterOption, ActiveFilters } from "../../types/NFTTypes";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Label } from "../ui/label";
-import { ArrowLeft, Filter, X } from "lucide-react";
+import { ArrowLeft, Filter, X, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -112,6 +112,12 @@ interface NFTGridProps {
   onBack: () => void;
   loading?: boolean;
   loadingProgress?: { current: number; total: number };
+  currentPage?: number;
+  totalSupply?: number;
+  pageSize?: number;
+  onNextPage?: () => void;
+  onPrevPage?: () => void;
+  onForceRefresh?: () => void;
 }
 
 export default function NFTGrid({
@@ -121,6 +127,12 @@ export default function NFTGrid({
   onBack,
   loading = false,
   loadingProgress,
+  currentPage = 0,
+  totalSupply = 0,
+  pageSize = 30,
+  onNextPage,
+  onPrevPage,
+  onForceRefresh,
 }: NFTGridProps): React.JSX.Element {
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
@@ -200,6 +212,9 @@ export default function NFTGrid({
     );
   }, [activeFilters]);
 
+  const totalPages = Math.ceil(totalSupply / pageSize);
+  const isLastPage = currentPage >= totalPages - 1;
+
   return (
     <div className="w-full max-w-7xl mx-auto">
       {/* Header */}
@@ -225,6 +240,19 @@ export default function NFTGrid({
           </div>
 
           <div className="flex gap-2">
+            {onForceRefresh && (
+              <Button
+                onClick={onForceRefresh}
+                variant="outline"
+                className="border-purple-300 hover:bg-purple-100"
+                disabled={loading}
+                title="Clear cache and reload from blockchain"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+            )}
+
             {activeFilterCount > 0 && (
               <Button
                 onClick={clearFilters}
@@ -334,6 +362,7 @@ export default function NFTGrid({
 
       {/* NFT Grid */}
       {!loading && filteredNFTs.length > 0 && (
+        <>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredNFTs.map((nft) => (
             <Card
@@ -398,6 +427,36 @@ export default function NFTGrid({
             </Card>
           ))}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-4 mt-8">
+            <Button
+              onClick={onPrevPage}
+              disabled={currentPage === 0}
+              variant="outline"
+              className="border-purple-300 hover:bg-purple-100 disabled:opacity-40"
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Prev
+            </Button>
+
+            <span className="text-purple-800 font-semibold">
+              Page {currentPage + 1} of {totalPages}
+            </span>
+
+            <Button
+              onClick={onNextPage}
+              disabled={isLastPage}
+              variant="outline"
+              className="border-purple-300 hover:bg-purple-100 disabled:opacity-40"
+            >
+              Next
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        )}
+        </>
       )}
     </div>
   );

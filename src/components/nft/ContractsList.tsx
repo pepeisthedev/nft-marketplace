@@ -1,6 +1,7 @@
 import React from "react";
 import { NFTContract } from "../../types/NFTTypes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Badge } from "../ui/badge";
 
 /**
  * Ensures a data URI is properly formatted for use in HTML attributes
@@ -112,7 +113,14 @@ export default function ContractsList({ contracts, onSelectContract }: Contracts
                   )}
                 </div>
               )}
-              <CardTitle className="text-2xl text-purple-900">{contract.name}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-2xl text-purple-900">{contract.name}</CardTitle>
+                {contract.type === "ERC1155" && (
+                  <Badge className="bg-pink-100 text-pink-700 border border-pink-300 text-xs">
+                    ERC-1155
+                  </Badge>
+                )}
+              </div>
               <CardDescription className="text-purple-600">
                 {contract.symbol}
               </CardDescription>
