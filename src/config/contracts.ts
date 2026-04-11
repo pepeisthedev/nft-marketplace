@@ -28,21 +28,21 @@ export const NFT_CONTRACTS_BY_NETWORK: Record<number, NFTContract[]> = {
   // Base Sepolia testnet
   84532: [
     {
-      address: "0x673F91e4D811912bFC1205cC01E0fB8Ca58fE650",
+      address: "0x31e1B63A0ae2B59C44905f104d78c2f8FE5aFdF0",
       name: "Fregs",
       symbol: "FREGS",
       description: "Fregs on sepolia",
       type: "ERC721",
     },
     {
-      address: "0x779E8B83dC491143eb76405ed74b35Ca74308CE0",
+      address: "0x138f4E7B6311152e84c253aCA03614D6A41F5de1",
       name: "Fregs Items",
       symbol: "FREGITEM",
       description: "Freg items on sepolia",
       type: "ERC721",
     },
     {
-      address: "0xA44bD39c7F054b7BeB4A634EE281750Bd22dfa37",
+      address: "0xb5D51e40bF431ba17fBC839AA864282780331127",
       name: "Fregs Mintpass",
       symbol: "Mintpass",
       description: "Fregs mintpass on sepolia",
@@ -50,7 +50,7 @@ export const NFT_CONTRACTS_BY_NETWORK: Record<number, NFTContract[]> = {
       tokenIds: [1], // MINT_PASS token ID = 1
     },
     {
-      address: "0x0c133Ff93c750f1dA3DB10b93Cf6B9Df647F236A",
+      address: "0xAE35969e1Df2E3E738C3c1514a692b23a7096654",
       name: "FregSpinToken",
       symbol: "FREGSPIN",
       description: "Fregs spin token on sepolia",
